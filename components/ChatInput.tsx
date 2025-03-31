@@ -1,9 +1,16 @@
 "use client"
 
 import React, { useState, useRef } from "react"
+import { useOCR } from "@/lib/useOCR"
+import { useChat } from "@/app/context/ChatContext"
+import { v4 as uuidv4 } from "uuid" // npm install uuid
 
 export default function ChatInput() {
+  const { addMessage } = useChat()
+
   // 💾 Stores the typed text (e.g., "2 + 2")
+  const { extractTextFromImage, isProcessing } = useOCR()
+
   const [typedValue, setTypedValue] = useState("")
 
   // 💾 Stores the image preview data URL (base64)
@@ -48,13 +55,15 @@ export default function ChatInput() {
       const file = files[0]
       if (file.type.startsWith("image/")) {
         const reader = new FileReader()
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
           const imgSrc = event.target?.result as string
+          setImagePreview(imgSrc)
 
-          setImagePreview(imgSrc) // <-- 🔧 This is where dropped image data is stored
-          // 🔍 You can manipulate/process the image data here (e.g., send to OCR, etc.)
+          // 🧠 Run OCR and paste result into input
+          const text = await extractTextFromImage(file)
+          addMessage({ id: uuidv4(), role: "user", content: text })
         }
-        reader.readAsDataURL(file)
+        reader.readAsDataURL(file) // <-- Trigger FileReader to generate base64 preview
       }
     }
     // 📥 Handle dropped plain text
@@ -79,7 +88,7 @@ export default function ChatInput() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         className={`border-2 border-dashed rounded p-4 min-h-[60px] transition-colors ${
-          isDragging ? "bg-gray-100" : "bg-white"
+          isDragging ? "bg-gray-100" : "bg-red-500"
         }`}
       >
         {/* Placeholder shown when nothing typed or dropped */}
